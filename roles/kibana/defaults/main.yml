@@ -1,0 +1,16 @@
+---
+kibana_version: "7.5.1"
+
+oss_version: false
+kibana_repo_base: "https://artifacts.elastic.co"
+kibana_apt_key: "{{ kibana_repo_base }}/GPG-KEY-elasticsearch"
+kibana_apt_url: "deb {{ kibana_repo_base }}/packages/{{ kibana_repo_name }}/apt stable main"
+
+kibana_service_enabled: true
+
+kibana_server_port: 5601
+kibana_server_host: "0.0.0.0"
+
+kibana_elasticsearch_hosts: "http://localhost:9200"
+kibana_elasticsearch_username: ""
+kibana_elasticsearch_password: ""

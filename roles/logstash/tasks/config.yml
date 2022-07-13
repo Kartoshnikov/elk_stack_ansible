@@ -1,0 +1,56 @@
+---
+- name: Create Logstash configuration files.
+  template:
+    src: "{{ item }}"
+    dest: "/etc/logstash/conf.d/{{ item | basename | replace('.j2', '') }}"
+    owner: root
+    group: root
+    mode: 0644
+  loop: "{{ query('fileglob', 'templates/confs/*.j2') }}"
+  notify: restart logstash
+
+- name: Create Logstash filters.
+  copy:
+    src: "{{ item }}"
+    dest: "/etc/logstash/conf.d/{{ item | basename }}"
+    owner: root
+    group: root
+    mode: 0644
+  loop: "{{ query('fileglob', 'files/filters/*.conf') }}"
+  notify: restart logstash
+
+- name: Copy curator configuration file
+  template:
+    src: "{{ item }}"
+    dest: "{{ curator_conf_dir }}/{{ item | replace('.j2', '') }}"
+    owner: root
+    group: root
+    mode: 0640
+  loop:
+    - "{{ curator_conf_file }}.j2"
+    - "{{ curator_action_file }}.j2"
+
+- name: Copy cron file for curator
+  template:
+    src: "curator_cron.j2"
+    dest: "/etc/cron.d/elasticsearch-curator"
+    owner: root
+    group: root
+    mode: 0644
+
+#- name: Create Logstash configuration file for local syslog.
+#  template:
+#    src: 02-local-syslog-input.conf.j2
+#    dest: /etc/logstash/conf.d/02-local-syslog-input.conf
+#    owner: root
+#    group: root
+#    mode: 0644
+#  when: logstash_monitor_local_syslog
+#  notify: restart logstash
+
+# - name: Ensure configuration for local syslog is absent if disabled.
+#   file:
+#     path: /etc/logstash/conf.d/02-local-syslog-input.conf
+#     state: absent
+#   when: not logstash_monitor_local_syslog
+#   notify: restart logstash

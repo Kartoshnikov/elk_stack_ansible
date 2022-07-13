@@ -1,0 +1,52 @@
+---
+- name: HTTPS APT transport for Elasticsearch repository.
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "apt-transport-https"
+    - "default-jdk"
+
+- name: Add Elasticsearch apt key.
+  apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    id: "46095ACC8548582C1A2699A9D27D666CD88E42B4"
+    state: present
+
+- name: Add Logstash and curator repository.
+  apt_repository:
+    repo: "{{ item }}"
+    state: present
+  loop:
+    - "deb https://artifacts.elastic.co/packages/{{ logstash_major_version }}/apt stable main"
+    - "deb [arch=amd64] https://packages.elastic.co/curator/5/debian9 stable main"
+
+- name: Check if Logstash is already installed.
+  stat: path=/etc/init.d/logstash
+  register: logstash_installed
+
+- name: Update apt cache if repository just added.
+  apt: update_cache=yes
+  when: not logstash_installed.stat.exists
+
+- name: Install Logstash and curator.
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - 'logstash{% if logstash_version is defined and logstash_version != "" %}=1:{{ logstash_version }}-1{% endif %}'
+    - "elasticsearch-curator"
+
+- name: Add Logstash user to adm group (Debian).
+  user:
+    name: logstash
+    group: logstash
+    groups: adm
+  notify: restart logstash
+
+- name: Create curator directory
+  become: yes
+  file:
+    path: "{{ curator_conf_dir }}"
+    state: directory
+    mode: "0750"

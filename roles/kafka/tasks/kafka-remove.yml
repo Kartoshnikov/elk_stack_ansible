@@ -1,0 +1,34 @@
+---
+
+- name: Check if Kafka is already installed.
+  stat: path="{{ kafka_install_path }}"
+  register: kafka_installed
+
+- when: kafka_installed.stat.exists
+  block:
+  - name: KAFKA | Stop
+    systemd: 
+      name: kafka
+      state: stopped
+
+  - name: KAFKA | Remove Kafka user
+    user:
+      name: "{{ kafka_user }}"
+      group: "{{ kafka_group }}"
+      state: absent
+    ignore_errors: true
+
+  - name: KAFKA | Remove all paths
+    file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+      - "{{ kafka_install_path }}"
+      - "{{ kafka_conf_path }}"
+      - "{{ kafka_data_path }}"
+      - "{{ kafka_log_path }}"
+      - "/lib/systemd/system/kafka.service"
+      - "/etc/systemd/system/multi-user.target.wants/kafka.service"
+
+  - name: Systemd daemon reload
+    systemd: daemon_reload=yes

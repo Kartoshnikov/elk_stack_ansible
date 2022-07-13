@@ -1,0 +1,11 @@
+{% for server in zookeeper_hosts %}
+{% if server.host is defined %}
+{% if server.host == hostvars[inventory_hostname].ansible_host %}
+{{ server.id }}
+{% endif %}
+{% else %}
+{% if server == inventory_hostname %}
+{{ loop.index }}
+{% endif %}
+{% endif %}
+{% endfor %}

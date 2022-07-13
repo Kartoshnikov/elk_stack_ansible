@@ -1,0 +1,8 @@
+{{ ansible_managed | comment }}
+
+[beats]
+name=Elastic Beats Repository
+baseurl={{ repo_url }}
+enabled=1
+gpgkey={{ elastic_repo_key }}
+gpgcheck=1

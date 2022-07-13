@@ -1,0 +1,39 @@
+elasticsearch_role_tags:
+   - elasticsearch
+   - elasticsearch_install
+   - elasticsearch_config
+   - elasticsearch_remove
+   - elasticsearch_templates
+   - elasticsearch_plugins
+   - elasticsearch_xpack
+
+logstash_role_tags:
+   - logstash
+   - logstash_install
+   - logstash_config
+   - logstash_remove
+
+zookeeper_role_tags:
+   - zookeeper
+   - zookeeper_install
+   - zookeeper_config
+   - zookeeper_remove
+
+kafka_role_tags:
+   - kafka
+   - kafka_install
+   - kafka_config
+   - kafka_topics
+   - kafka_remove
+
+beat_role_tags:
+   - beat    # includes install and config
+   - beat_install
+   - beat_config
+   - beat_remove
+
+kibana_role_tags:
+   - kibana           
+   - kibana_install
+   - kibana_config
+   - kibana_remove

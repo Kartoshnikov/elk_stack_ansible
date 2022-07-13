@@ -1,0 +1,70 @@
+---
+# tasks file for beats
+
+- tags:
+    - beat
+    - beat_install
+    - beat_config
+    - beat_remove
+    - remove
+  block:
+  - name: check-parameters
+    include: beats-param-check.yml
+
+  - set_fact:
+      beat_product: "{{ beat }}"
+
+  - name: os-specific vars
+    include_vars: '{{ ansible_os_family }}.yml'
+
+
+- tags:
+    - beat
+  block:
+    # Install OS specific beats
+  - tags: beat_install
+    block:
+    - name: Include specific Beats
+      include: beats-debian.yml
+      when: ansible_os_family == 'Debian'
+
+    - name: Include specific Beats
+      include: beats-redhat.yml
+      when: ansible_os_family == 'RedHat'
+
+  # Configuration file for beats
+  - name: Beats configuration
+    include: beats-config.yml
+    tags: beat_config
+
+  # Make sure the service is started, and restart if necessary
+  # - name: Start {{ beat_product }} service
+  #   service:
+  #     name: "{{ beat }}"
+  #     state: started
+  #     enabled: true
+  #   when: start_service
+  #   register: beats_started
+
+  - name: Force all notified handlers to run at this point, not waiting for normal sync points
+    meta: flush_handlers
+
+
+- name: Remove Beats
+  include: beats-remove.yml
+  tags: 
+    - "{{ 'never' if (ansible_run_tags | intersect(['remove', 'beat_remove']) | length) == 0 else 'always' }}"
+
+- name: Stop Beats
+  systemd: 
+    name: "{{ beat }}"
+    state: stopped
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['stop', 'beat_stop']) | length) == 0 else 'always' }}"
+
+- name: Start Beats
+  systemd: 
+    name: "{{ beat }}"
+    state: started
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['start', 'beat_start']) | length) == 0 else 'always' }}"

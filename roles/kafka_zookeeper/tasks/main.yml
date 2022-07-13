@@ -1,0 +1,27 @@
+---
+
+- name: KAFKA | Install
+  import_tasks: install.yml
+  tags:
+    - kafka_install
+
+- name: KAFKA | Configure
+  import_tasks: config_kafka.yml
+  tags:
+    - kafka_configure
+    
+- name: ZOOKEEPER | Config
+  import_tasks: config_zookeeper.yml
+  tags:
+    - zookeeper_configure
+
+- name: KAFKA and ZOOKEEPER | Service
+  import_tasks: service.yml
+  tags:
+    - kafka_service
+
+- name: KAFKA | Topics
+  import_tasks: topics.yml
+  run_once: true
+  tags:
+    - kafka_topics

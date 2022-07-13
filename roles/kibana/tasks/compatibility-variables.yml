@@ -1,0 +1,30 @@
+---
+
+# It is possible to set these are defaults with messy jinja templating one liners however:
+# 1. That is really hard to read and debug
+# 2. When running multiple plays with the same role the defaults are not re-evaluated. 
+
+- name: Set the defaults here otherwise they can't be overriden in the same play if the role is called twice
+  set_fact:
+    kibana_repo_name: "{{ kibana_major_version }}"
+    kibana_other_repo_name: "{{ 'oss-' + kibana_major_version }}"
+    kibana_package_name: "kibana"
+    kibana_other_package_name: "kibana-oss"
+    kibana_other_apt_url: "deb {{ kibana_repo_base }}/packages/{{ 'oss-' + kibana_major_version }}/apt stable main"
+
+
+- name: Use the oss repo and package if xpack is not being used
+  set_fact:
+    kibana_repo_name: "{{ 'oss-' + kibana_major_version }}"
+    kibana_other_repo_name: "{{ kibana_major_version }}"
+    kibana_package_name: "kibana-oss"
+    kibana_other_package_name: "kibana"
+    kibana_other_apt_url: "deb {{ kibana_repo_base }}/packages/{{ kibana_major_version }}/apt stable main"
+  when:
+    - oss_version
+
+
+# - name: Set the URL scheme to https if SSL/TLS is enabled
+#   set_fact:
+#     es_api_scheme: "https"
+#   when: es_enable_http_ssl | bool

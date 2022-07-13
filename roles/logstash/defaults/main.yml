@@ -1,0 +1,35 @@
+---
+logstash_version: '7.6.1'
+
+logstash_listen_port_beats: 5044
+
+logstash_elasticsearch_hosts:
+  - http://localhost:9200
+
+logstash_local_syslog_path: /var/log/syslog
+logstash_monitor_local_syslog: true
+
+logstash_dir: /usr/share/logstash
+curator_conf_dir: /etc/elasticsearch-curator
+curator_conf_file: curator.yml
+curator_action_file: curator_action_file.yml
+curator_log_file: action.log
+
+curator_disable_delete_action: True
+curator_retention_unit: "days"
+curator_retention_count: 14
+curator_cron_scheduler: "00 00 * * *"
+
+filebeat_indices_prefix: "filebeat-"
+metricbeat_indices_prefix: "metricbeat-"
+
+logstash_ssl_dir: /etc/pki/logstash
+logstash_ssl_certificate_file: ""
+logstash_ssl_key_file: ""
+
+logstash_enabled_on_boot: true
+kafka_bootstrap_servers: ""
+kafka_topics: ""
+
+logstash_install_plugins:
+  - logstash-input-beats

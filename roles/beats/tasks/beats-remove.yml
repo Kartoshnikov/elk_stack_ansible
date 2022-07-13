@@ -1,0 +1,61 @@
+---
+
+- name: "Check if the {{ beat }} package is installed"
+  shell: "dpkg-query -W -f'${Status}' {{ beat }}"
+  register: beat_package
+  failed_when: False
+  changed_when: False
+
+- when:
+    - use_repository | bool
+    - beat_package.stdout == 'install ok installed'
+  block:
+  - name: Stop Beats
+    systemd: 
+      name: "{{ beat }}"
+      state: stopped
+
+  - when:
+      - ansible_distribution_release == "trusty"
+    block:
+    - name: Debian - Remove python-urllib3, python-openssl, python-pyasn1 & python-pip
+      apt:
+        name:
+          - python-urllib3
+          - python-openssl
+          - python-pyasn1
+          - python-pip
+        state: absent
+        purge: yes
+
+    - name: Debian - Remove ndg-httpsclient pip
+      pip:
+        name: ndg-httpsclient
+        state: absent
+
+  - name: Debian - Remove {{ beat }} 
+    apt:
+      name: >-
+        {{ beat }}{% if beats_version is defined and beats_version|length>0 %}={{ beats_version }}{% endif %}
+      state: absent
+      purge: yes
+      autoremove: yes
+
+  - name: Delete data
+    file:
+      path: "{{ item }}"
+      state: absent
+    loop: 
+      - "{{ beats_conf_dir }}"
+      - "{{ default_file }}/{{ beat }}"
+      - "/etc/systemd/system/multi-user.target.wants/filebeat.service"
+      - "/etc/systemd/system/multi-user.target.wants/metricbeat.service"
+
+  - name: Debian - Remove beats repository
+    apt_repository:
+      repo: 'deb {{ repo_url }} stable main'
+      state: absent
+
+  - name: Systemd daemon reload
+    systemd: daemon_reload=yes
+    

@@ -1,0 +1,62 @@
+---
+
+- set_fact: "logstash_major_version={{ logstash_version.split('.')[0] }}.x"
+  when:
+    - logstash_major_version is undefined
+  tags: 
+    - logstash           
+    - logstash_install
+    - config
+    - logstash_config
+    - logstash_remove
+    - remove
+
+- tags:
+    - logstash
+  block:
+  - tags: logstash_install
+    block:
+    - name: Include OS Specific setup tasks
+      include: setup-Debian.yml
+      when: ansible_os_family == 'Debian'
+
+    - name: Include OS Specific setup tasks
+      include: setup-RedHat.yml
+      when: ansible_os_family == 'RedHat'
+
+  - tags: 
+      - config
+      - logstash_config
+    block:
+    - include: config.yml
+
+    - include: ssl.yml
+      when: logstash_ssl_key_file | bool
+
+    - include: plugins.yml
+
+  - name: Ensure Logstash is started and enabled on boot.
+    systemd:
+      name: logstash.service
+      state: started
+      enabled: "{{ logstash_enabled_on_boot }}"
+
+- name: Remove Logstash
+  include: logstash-remove.yml
+  tags: 
+    - "{{ 'never' if (ansible_run_tags | intersect(['remove', 'logstash_remove']) | length) == 0 else 'always' }}"
+
+- name: Stop Logstash
+  systemd: 
+    name: "logstash"
+    state: stopped
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['stop', 'logstash_stop']) | length) == 0 else 'always' }}"
+
+- name: Start Logstash
+  systemd: 
+    name: "logstash"
+    state: started
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['start', 'logstash_start']) | length) == 0 else 'always' }}"
+    

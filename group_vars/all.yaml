@@ -1,0 +1,15 @@
+ansible_python_interpreter: /usr/bin/python3
+elastic_transport_port: 9300 
+elastic_data_port: 9200 
+logstash_beats_port: 5044
+zookeeper_cl_port: 2181
+kafka_listen_port: 9092
+topics_for_kafka: #[]
+  - name: "filebeat"    # for filebeat, don't change position
+    partitions: "1"
+    replicas: "{{ (kafka_hosts | default([])) | length }}"
+  - name: "metricbeat"
+    partitions: "1"
+    replicas: "{{ (kafka_hosts | default([])) | length }}"
+kibana_host: "{{ groups.kibana | map('extract', hostvars, 'ansible_host') | join('') }}"
+kibana_port: 5601

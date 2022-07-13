@@ -1,0 +1,53 @@
+---
+
+- name: Check if the logstash package is installed
+  shell: "dpkg-query -W -f'${Status}' logstash"
+  register: logstash_package
+  failed_when: False
+  changed_when: False
+  check_mode: no
+
+- when: logstash_package.stdout == 'install ok installed'
+  block:
+
+  - name: Stop Logstash
+    systemd:
+      name: logstash
+      state: stopped
+
+  - name: Remove Logstash and cursor.
+    apt:
+      name: "{{ item }}"
+      state: absent
+      purge: yes
+      autoremove: yes
+    loop:
+      - elasticsearch-curator
+      - logstash
+
+  - name: Remove logstash user (Debian).
+    user:
+      name: logstash
+      group: logstash
+      state: absent
+      remove: yes
+
+  - name: Delete data
+    file:
+      path: "{{ item }}"
+      state: absent
+    loop: 
+      - "{{ logstash_dir }}"
+      - "{{ logstash_ssl_dir }}"
+      - "{{ curator_conf_dir }}"
+      - "/var/lib/logstash"
+      - "/etc/logstash"
+      - "/var/log/logstash"
+
+  - name: Systemd daemon reload
+    systemd: daemon_reload=yes
+
+  - name: Remove Logstash repository.
+    apt_repository:
+      repo: 'deb https://artifacts.elastic.co/packages/{{ logstash_version }}/apt stable main'
+      state: absent

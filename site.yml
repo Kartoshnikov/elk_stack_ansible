@@ -1,0 +1,173 @@
+---
+- name: Deploy LogStash
+  hosts: logstash
+  vars_files:
+    - vars/tags.yml
+  gather_facts: "{{ 'yes' if not (ansible_run_tags | intersect( ([logstash_role_tags, 'config', 'remove', 'all'] | flatten(levels=1)) ) | length) == 0 else 'no' }}"
+  roles:
+    - role: logstash
+      logstash_version: '7.6.2'
+      logstash_listen_port_beats: "{{ logstash_beats_port }}"
+      logstash_elasticsearch_hosts: "{{ groups.elastic | map('extract', hostvars, 'ansible_host') | zip([elastic_data_port,]*(groups.elastic | length)) | map('join', ':') | list }}"
+      kafka_topics: "{{ topics_for_kafka | map(attribute='name') | list }}" 
+      kafka_bootstrap_servers: "{{ groups.kafka | map('extract', hostvars, 'ansible_host') | zip([kafka_listen_port,]*(groups.elastic | length)) | map('join', ':') | join(',') }}"
+      logstash_install_plugins:
+        - logstash-input-beats
+        - logstash-input-kafka
+      es_curator_client_endpoints: "{{ groups.elastic | map('extract', hostvars, 'ansible_host') | list }}"
+      curator_disable_delete_action: False
+      curator_retention_count: 7
+
+
+- name: Deploy an elastic claster
+  hosts: elastic
+  vars_files:
+    - vars/tags.yml
+  gather_facts: "{{ 'yes' if not (ansible_run_tags | intersect( ([elasticsearch_role_tags, 'config', 'remove', 'all'] | flatten(levels=1)) ) | length) == 0 else 'no' }}"
+  roles:
+    - role: elasticsearch
+      es_version: "7.6.2"
+      es_data_dirs: 
+        - "/opt/elasticsearch/data"
+      es_log_dir: "/opt/elasticsearch/logs"
+      es_heap_size: "4g"
+      es_config:
+        cluster.name: "STEMScopes-logs"
+        discovery.seed_hosts: "{{ groups.elastic | map('extract', hostvars, 'ansible_host') | zip([elastic_transport_port,]*(groups.elastic | length)) | map('join', ':') | join(', ') }}"
+        cluster.initial_master_nodes: "{{ ', '.join(groups.elastic) }}"
+        network.host: "_site_, _local_"
+        http.port: "{{ elastic_data_port }}"
+        transport.port: "{{ elastic_transport_port }}"
+        bootstrap.memory_lock: true
+
+
+- name: Deploy zookeeper
+  hosts: zookeeper
+  vars_files:
+    - vars/tags.yml
+  gather_facts: "{{ 'yes' if not (ansible_run_tags | intersect( ([zookeeper_role_tags, 'config', 'remove', 'all'] | flatten(levels=1)) ) | length) == 0 else 'no' }}"
+  roles:
+    - role: zookeeper
+      zookeeper_version: 3.5.6
+      zookeeper_client_port: "{{ zookeeper_cl_port }}"
+      zookeeper_config_map:
+        - key: admin.serverPort
+          value: 7080
+      zookeeper_hosts: "{{ (('host',)*(groups.zookeeper | length)) | zip(groups.zookeeper | map('extract', hostvars, 'ansible_host')) | zip((('id',)*(groups.zookeeper | length)) | zip(range(1,(groups.zookeeper | length)+1))) | map('to_dict') | list }}"
+           
+
+- name: Deploy kafka
+  hosts: kafka
+  vars_files:
+    - vars/tags.yml
+  gather_facts: "{{ 'yes' if not (ansible_run_tags | intersect( ([kafka_role_tags, 'config', 'remove', 'all'] | flatten(levels=1)) ) | length) == 0 else 'no' }}"
+  roles:
+    - role: kafka
+      kafka_version: 2.4.0
+      kafka_scala_version: 2.13
+      kafka_xmx: "2g"
+      kafka_xms: "2g"
+      kafka_delete_topic_enable: 'true'
+      kafka_port: "{{ kafka_listen_port }}"
+      kafka_host_name: "{{ hostvars[inventory_hostname].ansible_host }}"
+      kafka_hosts: "{{ (('host',)*(groups.kafka | length)) | zip(groups.kafka) | zip((('id',)*(groups.kafka | length)) | zip(range(0,(groups.kafka | length)))) | map('to_dict') | list }}" 
+      kafka_zookeeper_hosts: "{{ groups.zookeeper | map('extract', hostvars, 'ansible_host') | zip([zookeeper_cl_port,]*(groups.elastic | length)) | map('join', ':') | list }}"
+      kafka_topics: "{{ topics_for_kafka }}"
+
+
+- name: Deploy filebeat
+  gather_facts: "{{ 'yes' if not (ansible_run_tags | intersect(['config', 'remove', 'all']) | length) == 0 or 'filebeat' in ansible_run_tags and not (ansible_run_tags | intersect( ([beat_role_tags, 'all'] | flatten(levels=1)) ) | length) == 0 else 'no' }}"
+  hosts: filebeat
+  vars_files:
+    - vars/tags.yml
+  roles:
+    - role: beats
+      when: "not (ansible_run_tags | intersect(['filebeat', 'config', 'start', 'stop', 'remove', 'all']) | length) == 0"
+      beats_version: "7.6.2"
+      beat: "filebeat"
+      beat_output_conf: 
+        #output.logstash: 
+        #  hosts: "{{ groups.logstash | map('extract', hostvars, 'ansible_host') | zip([logstash_beats_port,]*(groups.elastic | length)) | map('join', ':') | list }}"
+        output.kafka:
+          hosts: "{{ groups.kafka | map('extract', hostvars, 'ansible_host') | zip([kafka_listen_port,]*(groups.elastic | length)) | map('join', ':') | list }}"
+          topic: "{{ topics_for_kafka[0].name }}"
+          required_acks: 1
+      beat_conf:
+        filebeat.inputs:
+          - type: log
+            enable: true
+            paths:
+              - /home/sites/apps/stemscopes2/shared/log/integration.log
+            fields:
+              application: "stemscopes2"
+            fields_under_root: true
+            multiline.pattern: '\[(?:\d\d){2,4}-(?:0?[1-9]|1[0-2])-(?:(?:0[1-9])|(?:[12][0-9])|(?:3[01])|[1-9]) (?:2[0123]|[01]?[0-9]):[0-5][0-9](?::(?:[0-5]?[0-9]|60)(?:[:.,][0-9]+)?)? [+-]?[0-9]+\]'
+            multiline.negate: true
+            multiline.match: after
+        filebeat.modules:
+          - module: nginx
+            access:
+              enabled: true
+              var.paths: ["/home/sites/log/nginx.access.log*"]
+            error:
+              enabled: true
+              var.paths: ["/home/sites/log/nginx.error.log*"]
+        processors:
+          - add_host_metadata: ~
+
+
+- name: Deploy metricbeat
+  gather_facts: "{{ 'yes' if not (ansible_run_tags | intersect(['config', 'remove', 'all']) | length) == 0 or 'metricbeat' in ansible_run_tags and not (ansible_run_tags | intersect( ([beat_role_tags, 'all'] | flatten(levels=1)) ) | length) == 0 else 'no' }}"
+  hosts: metricbeat
+  vars_files:
+    - vars/tags.yml
+  roles:
+    - role: beats
+      when: "not (ansible_run_tags | intersect(['metricbeat', 'config', 'start', 'stop', 'remove', 'all']) | length) == 0"
+      beats_version: "7.6.2"
+      beat: "metricbeat"
+      beat_output_conf: 
+        output.kafka:
+          hosts: "{{ groups.kafka | map('extract', hostvars, 'ansible_host') | zip([kafka_listen_port,]*(groups.elastic | length)) | map('join', ':') | list }}"
+          topic: "{{ topics_for_kafka[1].name }}"
+          required_acks: 1
+      beat_conf:
+        metricbeat.modules:
+          - module: system
+            metricsets:
+              - cpu             
+              - load           
+              - memory        
+              - network       
+              - process       
+              - process_summary 
+              - uptime         
+              - socket_summary 
+              - core           
+              - diskio        
+              - filesystem   
+              - fsstat      
+              - socket     
+            enabled: true
+            period: 10s
+            processes: ['.*']
+            cpu.metrics:  ["percentages"]
+            core.metrics: ["percentages"]
+        processors:
+          - add_host_metadata: ~
+        #setup.dashboards.enabled: True
+        #setup.kibana:
+        #  host: "{{ kibana_host }}:{{ kibana_port }}"
+
+
+- name: Deploy Kibana
+  hosts: kibana
+  vars_files:
+    - vars/tags.yml
+  gather_facts: "{{ 'yes' if not (ansible_run_tags | intersect( ([kibana_role_tags, 'config', 'remove', 'all'] | flatten(levels=1)) ) | length) == 0 else 'no' }}"
+  roles:
+    - role: kibana
+      kibana_version: "7.6.2"
+      kibana_server_port: "{{ kibana_port }}"
+      kibana_server_host: "{{ kibana_host }}"
+      kibana_elasticsearch_hosts: "{{ groups.elastic | map('extract', hostvars, 'ansible_host') | zip([elastic_data_port,]*(groups.elastic | length)) | map('join', ':') | map('regex_replace', '^', 'http://') | list }}"

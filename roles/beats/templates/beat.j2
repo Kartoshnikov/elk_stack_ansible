@@ -1,0 +1,9 @@
+{{ ansible_managed | comment }}
+
+################################
+# {{beat}}
+################################
+
+# Beats PID File
+PIDFILE={{pid_file}}
+DAEMON_ARGS="-c {{conf_file}} {{daemon_args}}"

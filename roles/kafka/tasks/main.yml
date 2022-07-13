@@ -1,0 +1,45 @@
+---
+
+- tags: 
+    - kafka
+  block:
+  - name: KAFKA | Install
+    import_tasks: install.yml
+    tags:
+      - kafka_install
+
+  - name: KAFKA | Configure
+    import_tasks: config.yml
+    tags:
+      - config
+      - kafka_config
+
+  - name: KAFKA | Service
+    import_tasks: service.yml
+    tags:
+      - kafka_install
+
+  - name: KAFKA | Topics
+    import_tasks: topics.yml
+    run_once: true
+    tags:
+      - kafka_topics
+
+- name: KAFKA | Remove 
+  include: kafka-remove.yml
+  tags: 
+    - "{{ 'never' if (ansible_run_tags | intersect(['remove', 'kafka_remove']) | length) == 0 else 'always' }}"
+
+- name: KAFKA | Stop 
+  systemd: 
+    name: "kafka"
+    state: stopped
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['stop', 'kafka_stop']) | length) == 0 else 'always' }}"
+
+- name: KAFKA | Start
+  systemd: 
+    name: "kafka"
+    state: started
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['start', 'kafka_start']) | length) == 0 else 'always' }}"

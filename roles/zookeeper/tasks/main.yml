@@ -1,0 +1,40 @@
+---
+
+- tags: 
+    - zookeeper
+  block:
+  - name: ZOOKEEPER | Install
+    import_tasks: install.yml
+    tags:
+      - zookeeper_install
+
+  - name: ZOOKEEPER | Config
+    import_tasks: config.yml
+    tags:
+      - config
+      - zookeeper_config
+
+  - name: ZOOKEEPER | Service
+    import_tasks: service.yml
+    tags:
+      - zookeeper_install
+
+
+- name: ZOOKEEPER | Remove 
+  include: zookeeper-remove.yml
+  tags: 
+    - "{{ 'never' if (ansible_run_tags | intersect(['remove', 'zookeeper_remove']) | length) == 0 else 'always' }}"
+
+- name: ZOOKEEPER | Stop 
+  systemd: 
+    name: "zookeeper"
+    state: stopped
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['stop', 'zookeeper_stop']) | length) == 0 else 'always' }}"
+
+- name: ZOOKEEPER | Start
+  systemd: 
+    name: "zookeeper"
+    state: started
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['start', 'zookeeper_start']) | length) == 0 else 'always' }}"

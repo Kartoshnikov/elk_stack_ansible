@@ -1,0 +1,1 @@
+{{ curator_cron_scheduler }}  root  /usr/bin/curator --config {{ curator_conf_dir }}/{{ curator_conf_file }} {{ curator_conf_dir }}/{{ curator_action_file }} >> {{ curator_conf_dir }}/{{ curator_log_file }} 2>&1

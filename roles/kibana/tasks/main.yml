@@ -1,0 +1,60 @@
+---
+
+- tags: 
+    - kibana           
+    - kibana_install
+    - config
+    - kibana_config
+    - kibana_remove
+    - remove
+  block:
+  - set_fact: "kibana_major_version={{ kibana_version.split('.')[0] }}.x"
+    when:
+      - kibana_major_version is undefined
+
+  - name: set compatibility variables
+    include: compatibility-variables.yml
+    
+
+- tags: kibana
+  block:
+  - tags: kibana_install
+    block:
+    - name: Include OS Specific setup tasks
+      include: setup-Debian.yml
+      when: ansible_os_family == 'Debian'
+
+    - name: Include OS Specific setup tasks
+      include: setup-RedHat.yml
+      when: ansible_os_family == 'RedHat'
+
+  - include: config.yml
+    tags:
+      - config
+      - kibana_config
+
+  - name: Ensure Kibana is started and enabled at boot.
+    systemd:
+      name: "kibana"
+      state: started
+      enabled: "{{ kibana_service_enabled }}"
+
+
+- name: Remove Kibana
+  include: kibana-remove.yml
+  tags: 
+    - "{{ 'never' if (ansible_run_tags | intersect(['remove', 'kibana_remove']) | length) == 0 else 'always' }}"
+
+- name: Stop Kibana
+  systemd: 
+    name: "kibana"
+    state: stopped
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['stop', 'kibana_stop']) | length) == 0 else 'always' }}"
+
+- name: Start Kibana
+  systemd: 
+    name: "kibana"
+    state: started
+  tags:
+    - "{{ 'never' if (ansible_run_tags | intersect(['start', 'kibana_start']) | length) == 0 else 'always' }}"

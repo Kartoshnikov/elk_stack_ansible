@@ -1,0 +1,33 @@
+---
+
+- name: Check if ZooKeeper is already installed.
+  stat: path="{{ zookeeper_install_path }}"
+  register: zookeeper_installed
+
+- when: zookeeper_installed.stat.exists
+  block:
+  - name: ZOOKEEPER | Stop
+    systemd: 
+      name: zookeeper
+      state: stopped
+
+  - name: ZOOKEEPER | Remove ZooKeeper user
+    user:
+      name: "{{ zookeeper_user }}"
+      group: "{{ zookeeper_group }}"
+      state: absent
+
+  - name: ZOOKEEPER | Remove all paths
+    file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+      - "{{ zookeeper_conf_dir }}"
+      - "{{ zookeeper_install_path }}"
+      - "{{ zookeeper_data_dir }}"
+      - "{{ zookeeper_log_dir }}"
+      - "/etc/systemd/system/zookeeper.service"
+      - "/etc/systemd/system/multi-user.target.wants/zookeeper.service"
+
+  - name: Systemd daemon reload
+    systemd: daemon_reload=yes

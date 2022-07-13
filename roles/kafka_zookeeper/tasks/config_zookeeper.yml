@@ -1,0 +1,29 @@
+---
+
+- name: ZOOKEEPER | Overwrite myid file.
+  template:
+    src: myid.j2
+    dest: "{{ zookeeper_data_dir }}/myid"
+    force: "{{ zookeeper_force_myid }}"
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+  notify:
+    - Restart zookeeper
+
+- name: ZOOKEEPER | Overwrite default config file
+  template:
+    src: zookeeper.properties.j2
+    dest: "{{ kafka_conf_path }}/zookeeper.properties"
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+  notify:
+    - Restart zookeeper
+
+- name: ZOOKEEPER | Configure zookeeper-env.sh
+  template:
+    src: zookeeper-env.sh.j2
+    dest: "{{ kafka_conf_path }}/zookeeper-env.sh"
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+  notify:
+    - Restart zookeeper

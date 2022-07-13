@@ -1,0 +1,37 @@
+- name: Check if the kibana package is installed
+  shell: "dpkg-query -W -f'${Status}' {{ kibana_package_name }}"
+  register: kibana_package
+  failed_when: False
+  changed_when: False
+  check_mode: no
+
+- when: kibana_package.stdout == 'install ok installed'
+  block:
+
+  - name: Stop Kibana
+    systemd:
+      name: kibana
+      state: stopped
+
+  - name: Remove Kibana.
+    apt:
+      name: "{{ kibana_package_name }}"
+      state: absent
+      purge: yes
+      autoremove: yes
+
+  - name: Remove Kibana repository
+    apt_repository:
+      # repo: 'deb https://artifacts.elastic.co/packages/{{ kibana_version }}/apt stable main'
+      repo: "{{ kibana_apt_url }}"
+      state: absent
+
+  - name: Delete data
+    file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+      - "/var/lib/kibana/"
+
+  - name: Systemd daemon reload
+    systemd: daemon_reload=yes
